@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // غير الـ IP ده للـ IP بتاعك
-  final String baseUrl = "http://192.168.1.2:8000/api";
+  final String baseUrl = "http://192.168.1.4:8000/api";
 
   // ميثود اللوجن
   Future<Map<String, dynamic>> login(String email, String password) async {

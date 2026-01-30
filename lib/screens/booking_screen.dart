@@ -24,6 +24,12 @@ class _BookingScreenState extends State<BookingScreen> {
     _loadSlots();
   }
 
+  // ميثود لتحويل الساعة من نظام 24 لنظام 12 ساعة مع AM/PM
+  String _formatTime12H(int hour) {
+    final DateTime tempDate = DateTime(2026, 1, 1, hour);
+    return DateFormat('h:mm a').format(tempDate);
+  }
+
   Future<void> _loadSlots() async {
     setState(() => _isLoading = true);
     String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
@@ -39,7 +45,6 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  // 1. نافذة خيارات الحجز المحجوز (تعديل أو حذف)
   void _showOptionsDialog(dynamic booking) {
     showModalBottomSheet(
       context: context,
@@ -58,7 +63,7 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.delete, color: Colors.red),
-            title: const Text("إلغاء الحجز نهائياً"),
+            title: const Text("إلغاء الحجز"),
             onTap: () async {
               Navigator.pop(context);
               _confirmDelete(booking['id']);
@@ -70,15 +75,14 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  // 2. نافذة التعديل
   void _showEditDialog(dynamic booking) {
-    final TextEditingController nameController = TextEditingController(text: booking['user_name']?.toString());
-    final TextEditingController depositController = TextEditingController(text: booking['deposit']?.toString());
+    final nameController = TextEditingController(text: booking['user_name']?.toString());
+    final depositController = TextEditingController(text: booking['deposit']?.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("تعديل البيانات"),
+        title: const Text("تعديل الحجز"),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -105,10 +109,9 @@ class _BookingScreenState extends State<BookingScreen> {
     );
   }
 
-  // 3. نافذة حجز جديد
   void _showBookingDialog(int hour) {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController depositController = TextEditingController(text: "0");
+    final nameController = TextEditingController();
+    final depositController = TextEditingController(text: "0");
     bool isConstant = false;
 
     showModalBottomSheet(
@@ -120,11 +123,11 @@ class _BookingScreenState extends State<BookingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("حجز جديد - $hour:00", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("حجز جديد - ${_formatTime12H(hour)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               TextField(controller: nameController, decoration: const InputDecoration(labelText: "اسم الزبون")),
               TextField(controller: depositController, decoration: const InputDecoration(labelText: "العربون"), keyboardType: TextInputType.number),
               CheckboxListTile(
-                title: const Text("حجز ثابت أسبوعياً؟"),
+                title: const Text("حجز ثابت؟"),
                 value: isConstant,
                 onChanged: (val) => setModalState(() => isConstant = val!),
               ),
@@ -134,7 +137,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     "field_id": widget.fieldId,
                     "user_name": nameController.text,
                     "start_time": "${hour.toString().padLeft(2, '0')}:00",
-                    "end_time": "${(hour + 1).toString().padLeft(2, '0')}:00",
+                    "end_time": "${((hour + 1) % 24).toString().padLeft(2, '0')}:00",
                     "booking_date": DateFormat('yyyy-MM-dd').format(_selectedDate),
                     "is_constant": isConstant ? 1 : 0,
                     "deposit": depositController.text,
@@ -155,10 +158,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   void _confirmDelete(int id) async {
     bool success = await _apiService.deleteBooking(id);
-    if (success) {
-      _loadSlots();
-      _showSnackBar("تم الحذف بنجاح", Colors.green);
-    }
+    if (success) { _loadSlots(); _showSnackBar("تم الحذف", Colors.green); }
   }
 
   void _showSnackBar(String msg, Color color) {
@@ -185,10 +185,16 @@ class _BookingScreenState extends State<BookingScreen> {
               ? const Center(child: CircularProgressIndicator())
               : GridView.builder(
                   padding: const EdgeInsets.all(10),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1.4),
-                  itemCount: 16,
+                  // تم تغيير itemCount لـ 24 لعرض اليوم كاملاً
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2, 
+                    crossAxisSpacing: 10, 
+                    mainAxisSpacing: 10, 
+                    childAspectRatio: 1.4
+                  ),
+                  itemCount: 24, 
                   itemBuilder: (context, index) {
-                    int hour = index + 8;
+                    int hour = index; // من 0 لـ 23
                     String timeStr = "${hour.toString().padLeft(2, '0')}:00:00";
                     var booking = _occupiedSlots.firstWhere((s) => s['start_time'] == timeStr, orElse: () => null);
                     bool isOccupied = booking != null;
@@ -203,10 +209,18 @@ class _BookingScreenState extends State<BookingScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text("$hour:00", style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text(
+                              _formatTime12H(hour), // العرض بنظام AM/PM
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
+                            ),
                             if (isOccupied) ...[
-                              Text(booking['user_name']?.toString() ?? "بدون اسم", style: const TextStyle(color: Colors.white, fontSize: 12)),
-                              Text("عربون: ${booking['deposit']?.toString() ?? '0'}", style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                              Text(booking['user_name']?.toString() ?? "بدون اسم", 
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                                overflow: TextOverflow.ellipsis
+                              ),
+                              Text("عربون: ${booking['deposit']}", 
+                                style: const TextStyle(color: Colors.white70, fontSize: 11)
+                              ),
                             ]
                           ],
                         ),
