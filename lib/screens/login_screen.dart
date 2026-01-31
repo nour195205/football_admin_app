@@ -13,32 +13,34 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final ApiService _apiService = ApiService();
+  
   bool _isLoading = false;
+  bool _isPasswordVisible = false; // متغير للتحكم في رؤية كلمة السر
 
   void _handleLogin() async {
     // التأكد إن الحقول مش فاضية
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showError('يا ريت تدخل الإيميل والباسورد');
+      _showError('يا ريت تدخل الإيميل وباسورد الإدارة');
       return;
     }
 
     setState(() => _isLoading = true);
 
     final result = await _apiService.login(
-      _emailController.text,
+      _emailController.text.trim(),
       _passwordController.text,
     );
 
     setState(() => _isLoading = false);
 
     if (result['success']) {
-      // لو نجح، هنروح لشاشة الـ Dashboard (اللي هنعملها الجاية)
-      _showSuccess('تم الدخول بنجاح!');
-      // Navigator.pushReplacement(...) 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
+      _showSuccess('مرحباً بك في لوحة التحكم');
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      }
     } else {
       _showError(result['message']);
     }
@@ -46,13 +48,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(msg, textAlign: TextAlign.right), 
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
   void _showSuccess(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(msg, textAlign: TextAlign.right), 
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -62,47 +72,78 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(25.0),
+          padding: const EdgeInsets.symmetric(horizontal: 30.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.sports_soccer, size: 80, color: Colors.green),
-              const SizedBox(height: 20),
+              // لوجو أو أيقونة البرنامج
+              const Icon(Icons.sports_soccer, size: 100, color: Colors.green),
+              const SizedBox(height: 15),
               const Text(
-                "لوحة تحكم الملعب",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                "ملعب سانتياجو",
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green),
+              ),
+              const Text(
+                "لوحة تحكم الإدارة",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 40),
+
+              // حقل البريد الإلكتروني
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'الإيميل',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'البريد الإلكتروني',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.email_outlined),
                 ),
               ),
               const SizedBox(height: 20),
+
+              // حقل كلمة السر مع أيقونة العين
               TextField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: !_isPasswordVisible, // يعتمد على حالة العين
+                decoration: InputDecoration(
                   labelText: 'كلمة السر',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 35),
+
+              // زر الدخول
               _isLoading
-                  ? const CircularProgressIndicator()
+                  ? const CircularProgressIndicator(color: Colors.green)
                   : ElevatedButton(
                       onPressed: _handleLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
                         minimumSize: const Size(double.infinity, 55),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
                       ),
-                      child: const Text("دخول", style: TextStyle(fontSize: 18, color: Colors.white)),
+                      child: const Text(
+                        "تسجيل الدخول",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

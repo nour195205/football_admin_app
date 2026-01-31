@@ -45,6 +45,14 @@ dev_dependencies:
   build_runner: ^2.4.6
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/icon.jpg" # مسار صورتك الجديدة
+  adaptive_icon_background: "#ffffff" # لون الخلفية للأندرويد (اختياري)
+  adaptive_icon_foreground: "assets/images/icon.png" # الصورة الأمامية (اختياري)
 
 
   # The "flutter_lints" package below contains a set of recommended lints to

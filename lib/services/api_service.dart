@@ -183,4 +183,46 @@ class ApiService {
     );
     return response.statusCode == 200;
   }
+
+  // جلب قائمة المستخدمين
+Future<List<dynamic>> getUsers() async {
+  String? token = await _getToken();
+  final response = await http.get(
+    Uri.parse('$baseUrl/admin/users'),
+    headers: {'Accept': 'application/json', 'Authorization': 'Bearer $token'},
+  );
+  return jsonDecode(response.body);
+}
+
+// إضافة مستخدم من خلال الأدمن
+Future<Map<String, dynamic>> addUserByAdmin(Map<String, dynamic> userData) async {
+  String? token = await _getToken();
+  final response = await http.post(
+    Uri.parse('$baseUrl/admin/users/add'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode(userData),
+  );
+  return jsonDecode(response.body);
+}
+
+// تحديث الدور
+Future<bool> updateUserRole(int userId, String newRole) async {
+  String? token = await _getToken();
+  final response = await http.put(
+    Uri.parse('$baseUrl/admin/users/$userId/role'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode({'role': newRole}),
+  );
+  return response.statusCode == 200;
+}
+
+
 }

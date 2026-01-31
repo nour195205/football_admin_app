@@ -3,7 +3,8 @@ import '../services/api_service.dart';
 import '../models/field_model.dart';
 import 'booking_screen.dart';
 import 'bookings_list_screen.dart';
-import 'manage_fields_screen.dart'; // الملف الجديد اللي عملته
+import 'manage_fields_screen.dart';
+import 'user_management_screen.dart'; // استيراد شاشة إدارة المستخدمين
 import 'login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,25 +33,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('لوحة التحكم'),
+        title: const Text('لوحة التحكم - المدير'),
         backgroundColor: Colors.green,
+        elevation: 0,
         centerTitle: true,
         actions: [
-          // زرار إدارة الملاعب (التعديل والحذف والإضافة)
+          // أيقونة إدارة المستخدمين (إضافة/تغيير صلاحيات)
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.people_alt_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const UserManagementScreen()),
+              );
+            },
+            tooltip: 'إدارة المستخدمين',
+          ),
+          // زرار إعدادات الملاعب
+          IconButton(
+            icon: const Icon(Icons.app_registration_rounded),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ManageFieldsScreen()),
-              ).then((_) => setState(() {})); // عشان يحدث الداتا لما ترجع
+              ).then((_) => setState(() {}));
             },
             tooltip: 'إدارة الملاعب',
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout_rounded),
             onPressed: _logout,
           ),
         ],
@@ -58,31 +71,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text(
-              "اختر الملعب لإدارة المواعيد",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          // الجزء العلوي الترحيبي
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
             ),
           ),
+          
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: Center(
+              child: Text(
+                "سانتياجو",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color.fromARGB(221, 66, 167, 96)),
+              ),
+            ),
+          ),
+          
           Expanded(
             child: FutureBuilder<List<Field>>(
-              future: _apiService.getFields(),
+              future: _apiService.getFields(), // بيجيب من Hive لو مفيش نت
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: Colors.green));
                 } else if (snapshot.hasError) {
-                  return Center(child: Text('حدث خطأ: ${snapshot.error}'));
+                  return Center(child: Text('خطأ في الاتصال: ${snapshot.error}'));
                 } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('لا توجد ملاعب حالياً. ضيف ملعب من الإعدادات.'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.sports_soccer, size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 10),
+                        const Text('لا توجد ملاعب مضافة حالياً'),
+                      ],
+                    ),
+                  );
                 } else {
                   return GridView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    padding: const EdgeInsets.all(15),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: 15,
                       mainAxisSpacing: 15,
-                      childAspectRatio: 0.85,
+                      childAspectRatio: 0.9,
                     ),
                     itemCount: snapshot.data!.length,
                     itemBuilder: (context, index) {
@@ -100,25 +137,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         },
                         child: Card(
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Colors.green,
-                                child: Icon(Icons.sports_soccer, color: Colors.white, size: 35),
+                          elevation: 4,
+                          shadowColor: Colors.black26,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              gradient: LinearGradient(
+                                colors: [Colors.white, Colors.green.withOpacity(0.05)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                              const SizedBox(height: 15),
-                              Text(
-                                field.name,
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
-                              const Text("عرض الجدول", style: TextStyle(color: Colors.grey)),
-                            ],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.stadium_outlined, color: Colors.green, size: 50),
+                                const SizedBox(height: 10),
+                                Text(
+                                  field.name,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 5),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    "إدارة الجدول",
+                                    style: TextStyle(color: Colors.green, fontSize: 12),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -130,7 +184,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      // زرار سريع لمشاهدة كل الحجوزات المسجلة
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
@@ -139,8 +192,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         },
         backgroundColor: Colors.green,
-        icon: const Icon(Icons.list_alt, color: Colors.white),
-        label: const Text("كل الحجوزات", style: TextStyle(color: Colors.white)),
+        elevation: 6,
+        icon: const Icon(Icons.history_rounded, color: Colors.white),
+        label: const Text("كل الحجوزات", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
