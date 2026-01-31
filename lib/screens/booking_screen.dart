@@ -24,7 +24,7 @@ class _BookingScreenState extends State<BookingScreen> {
     _loadSlots();
   }
 
-  // ميثود لتحويل الساعة من نظام 24 لنظام 12 ساعة مع AM/PM
+  // ميثود تحويل الساعة لنظام 12 ساعة AM/PM للعرض فقط
   String _formatTime12H(int hour) {
     final DateTime tempDate = DateTime(2026, 1, 1, hour);
     return DateFormat('h:mm a').format(tempDate);
@@ -40,7 +40,7 @@ class _BookingScreenState extends State<BookingScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      _showSnackBar("خطأ في التحميل: $e", Colors.red);
+      _showSnackBar("خطأ في الاتصال بالسيرفر", Colors.red);
       setState(() => _isLoading = false);
     }
   }
@@ -123,17 +123,28 @@ class _BookingScreenState extends State<BookingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("حجز جديد - ${_formatTime12H(hour)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              TextField(controller: nameController, decoration: const InputDecoration(labelText: "اسم الزبون")),
-              TextField(controller: depositController, decoration: const InputDecoration(labelText: "العربون"), keyboardType: TextInputType.number),
+              Text("حجز جديد - ${_formatTime12H(hour)}", 
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+              const SizedBox(height: 10),
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: "اسم الزبون", border: OutlineInputBorder())),
+              const SizedBox(height: 10),
+              TextField(controller: depositController, decoration: const InputDecoration(labelText: "العربون", border: OutlineInputBorder()), keyboardType: TextInputType.number),
               CheckboxListTile(
-                title: const Text("حجز ثابت؟"),
+                title: const Text("حجز ثابت؟ (أسبوعياً)"),
                 value: isConstant,
+                activeColor: Colors.green,
                 onChanged: (val) => setModalState(() => isConstant = val!),
               ),
+              const SizedBox(height: 10),
               ElevatedButton(
                 onPressed: () async {
-                  await _apiService.createBooking({
+                  if (nameController.text.isEmpty) {
+                    _showSnackBar("يرجى كتابة اسم الزبون", Colors.orange);
+                    return;
+                  }
+
+                  // نداء الـ API واستقبال الـ Map
+                  final res = await _apiService.createBooking({
                     "field_id": widget.fieldId,
                     "user_name": nameController.text,
                     "start_time": "${hour.toString().padLeft(2, '0')}:00",
@@ -142,11 +153,20 @@ class _BookingScreenState extends State<BookingScreen> {
                     "is_constant": isConstant ? 1 : 0,
                     "deposit": depositController.text,
                   });
-                  Navigator.pop(context);
-                  _loadSlots();
+
+                  // فحص الحالة القادمة من الباك إند
+                  if (res['status'] == 'success') {
+                    Navigator.pop(context);
+                    _loadSlots();
+                    _showSnackBar(res['message'] ?? "تم الحجز بنجاح", Colors.green);
+                  } else {
+                    // في حالة وجود حجز مسبق (الرسالة التي كتبناها في Laravel)
+                    _showSnackBar(res['message'] ?? "فشل الحجز", Colors.red);
+                    _loadSlots(); // تحديث المربعات
+                  }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 50)),
-                child: const Text("تأكيد الحجز", style: TextStyle(color: Colors.white)),
+                child: const Text("تأكيد الحجز", style: TextStyle(color: Colors.white, fontSize: 16)),
               ),
               const SizedBox(height: 20),
             ],
@@ -158,7 +178,10 @@ class _BookingScreenState extends State<BookingScreen> {
 
   void _confirmDelete(int id) async {
     bool success = await _apiService.deleteBooking(id);
-    if (success) { _loadSlots(); _showSnackBar("تم الحذف", Colors.green); }
+    if (success) {
+      _loadSlots();
+      _showSnackBar("تم إلغاء الحجز", Colors.green);
+    }
   }
 
   void _showSnackBar(String msg, Color color) {
@@ -168,59 +191,95 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.fieldName), backgroundColor: Colors.green),
+      appBar: AppBar(
+        title: Text(widget.fieldName),
+        backgroundColor: Colors.green,
+        actions: [IconButton(onPressed: _loadSlots, icon: const Icon(Icons.refresh))],
+      ),
       body: Column(
         children: [
-          ListTile(
-            tileColor: Colors.green.withOpacity(0.1),
-            title: Text("التاريخ: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}"),
-            trailing: const Icon(Icons.calendar_today),
+          // اختيار التاريخ
+          InkWell(
             onTap: () async {
-              DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime(2030));
-              if (picked != null) { setState(() => _selectedDate = picked); _loadSlots(); }
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                setState(() => _selectedDate = picked);
+                _loadSlots();
+              }
             },
+            child: Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.calendar_month, color: Colors.green),
+                  const SizedBox(width: 10),
+                  Text(
+                    "التاريخ: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}",
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
           ),
+          
+          // عرض المربعات (24 ساعة)
           Expanded(
             child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator(color: Colors.green))
               : GridView.builder(
                   padding: const EdgeInsets.all(10),
-                  // تم تغيير itemCount لـ 24 لعرض اليوم كاملاً
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2, 
                     crossAxisSpacing: 10, 
                     mainAxisSpacing: 10, 
                     childAspectRatio: 1.4
                   ),
-                  itemCount: 24, 
+                  itemCount: 24, // يوم كامل
                   itemBuilder: (context, index) {
-                    int hour = index; // من 0 لـ 23
+                    int hour = index;
                     String timeStr = "${hour.toString().padLeft(2, '0')}:00:00";
-                    var booking = _occupiedSlots.firstWhere((s) => s['start_time'] == timeStr, orElse: () => null);
+                    
+                    var booking = _occupiedSlots.firstWhere(
+                      (s) => s['start_time'] == timeStr, 
+                      orElse: () => null
+                    );
                     bool isOccupied = booking != null;
 
                     return GestureDetector(
                       onTap: () => isOccupied ? _showOptionsDialog(booking) : _showBookingDialog(hour),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isOccupied ? Colors.red.shade400 : Colors.green.shade400,
+                          color: isOccupied ? Colors.red[400] : Colors.green[400],
                           borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))]
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              _formatTime12H(hour), // العرض بنظام AM/PM
-                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)
+                              _formatTime12H(hour), // نظام AM/PM
+                              style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)
                             ),
                             if (isOccupied) ...[
-                              Text(booking['user_name']?.toString() ?? "بدون اسم", 
-                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                                overflow: TextOverflow.ellipsis
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  booking['user_name']?.toString() ?? "ثابت", 
+                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
-                              Text("عربون: ${booking['deposit']}", 
-                                style: const TextStyle(color: Colors.white70, fontSize: 11)
-                              ),
+                              Text("عربون: ${booking['deposit']}", style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                            ] else ...[
+                              const Text("متاح", style: TextStyle(color: Colors.white70, fontSize: 13)),
                             ]
                           ],
                         ),

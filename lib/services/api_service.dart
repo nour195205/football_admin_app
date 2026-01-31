@@ -60,21 +60,33 @@ Future<Map<String, dynamic>> getOccupiedSlots(int fieldId, String date) async {
   }
 }
 
-Future<Map<String, dynamic>> createBooking(Map<String, dynamic> bookingData) async {
+Future<Map<String, dynamic>> createBooking(Map<String, dynamic> data) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   String? token = prefs.getString('token');
 
+  // ركز في السطر ده، شيلنا السلاش اللي قبل bookings لو كان الـ baseUrl آخره سلاش
+  final url = baseUrl.endsWith('/') ? '${baseUrl}bookings' : '$baseUrl/admin/bookings';
+
   final response = await http.post(
-    Uri.parse('$baseUrl/admin/bookings'),
+    Uri.parse(url),
     headers: {
-      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json', 
       'Authorization': 'Bearer $token',
     },
-    body: bookingData.map((key, value) => MapEntry(key, value.toString())),
+    body: jsonEncode(data),
   );
 
+  // اطبع الرد عشان لو فيه مشكلة في الداتا نعرفها
+  print("Response Code: ${response.statusCode}");
+  print("Response Body: ${response.body}");
+
+  // فك التشفير وارجاع الخريطة
   return jsonDecode(response.body);
 }
+
+
+
 
 // جلب كل الحجوزات
 Future<List<dynamic>> getBookings() async {
